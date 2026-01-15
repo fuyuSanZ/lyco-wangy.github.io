@@ -288,7 +288,7 @@
             scene.add(starMesh);
         }
 
-        // --- MediaPipe Logic ---
+        /*/ --- MediaPipe Logic ---
         async function initMediaPipe() {
             const videoElement = document.getElementById('video-input');
 
@@ -313,7 +313,60 @@
                 height: 480
             });
             cameraUtils.start();
+        }*/
+                // --- REVISI: MediaPipe Logic (Mobile Friendly) ---
+        async function initMediaPipe() {
+            const videoElement = document.getElementById('video-input');
+
+            // Setup MediaPipe Hands
+            const hands = new Hands({locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+            }});
+
+            hands.setOptions({
+                maxNumHands: 2,
+                modelComplexity: 0, // Gunakan 0 jika HP terasa lambat (Lite mode)
+                minDetectionConfidence: 0.7,
+                minTrackingConfidence: 0.5
+            });
+
+            hands.onResults(onHandsResults);
+
+            // Setup Kamera Manual (Lebih stabil untuk Mobile)
+            const constraints = {
+                video: {
+                    facingMode: 'user', // Memaksa kamera depan
+                    width: { ideal: 640 }, // Target resolusi ringan
+                    height: { ideal: 480 }
+                }
+            };
+
+            try {
+                // Minta izin kamera
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                videoElement.srcObject = stream;
+                
+                // Tunggu video siap dimainkan
+                videoElement.onloadedmetadata = () => {
+                    videoElement.play();
+                    // Mulai loop deteksi
+                    processVideo();
+                };
+            } catch (err) {
+                console.error("Error Kamera:", err);
+                alert("Gagal mengakses kamera. Pastikan izin diberikan dan menggunakan HTTPS.");
+                document.getElementById('loading').innerHTML = "Camera Access Denied.<br>Check HTTPS / Permissions.";
+            }
+
+            // Loop khusus untuk mengirim frame video ke MediaPipe
+            async function processVideo() {
+                if (videoElement.currentTime > 0 && !videoElement.paused && !videoElement.ended) {
+                    await hands.send({image: videoElement});
+                }
+                requestAnimationFrame(processVideo);
+            }
         }
+        
 
         function onHandsResults(results) {
             handLandmarks = results.multiHandLandmarks;
